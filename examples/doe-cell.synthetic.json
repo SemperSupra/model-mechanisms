@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "campaign_id": "bootstrap",
+  "design_id": "replay-contract-v1",
+  "cell_id": "synthetic-17",
+  "rep_id": 0,
+  "phase": "preflight",
+  "hypothesis_id": "can-replay-invariant-be-deterministic",
+  "primary_outcome": "deterministic_receipt",
+  "method": {
+    "family": "control",
+    "implementation": "stdlib-synthetic-oracle",
+    "source_revision": "bootstrap-v1"
+  },
+  "treatment": {
+    "kind": "none",
+    "factors": {
+      "seed": 17,
+      "count": 16
+    }
+  },
+  "control": {
+    "comparator_cell_id": null,
+    "compute_match_basis": null
+  },
+  "workload": {
+    "suite": "synthetic",
+    "split": "public-fixture",
+    "dataset_ref": "synthetic-generated-seed-17"
+  },
+  "execution": {
+    "seed": 17,
+    "environment_ref": "environments/python3-stdlib.json",
+    "resource_class": "cpu"
+  },
+  "provenance": {
+    "repository": "SemperSupra/model-mechanisms",
+    "source_revision": "bootstrap-v1"
+  }
+}

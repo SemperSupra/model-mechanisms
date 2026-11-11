@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SemperSupra/model-mechanisms/schemas/doe-cell.schema.json",
+  "title": "Model Mechanisms DOE Cell v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "design_id",
+    "cell_id",
+    "rep_id",
+    "phase",
+    "hypothesis_id",
+    "method",
+    "treatment",
+    "control",
+    "workload",
+    "execution",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "campaign_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "design_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "cell_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "rep_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase": {
+      "enum": [
+        "preflight",
+        "smoke",
+        "screen",
+        "confirm"
+      ]
+    },
+    "hypothesis_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "primary_outcome": {
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "implementation",
+        "source_revision"
+      ],
+      "properties": {
+        "family": {
+          "enum": [
+            "latent-reasoning",
+            "knowledge-editing",
+            "recurrent-computation",
+            "control",
+            "other"
+          ]
+        },
+        "implementation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 7
+        },
+        "component_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "factors"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "latent-state",
+            "recurrent-loop",
+            "static-adapter",
+            "deterministic-generator",
+            "diffusion-generator",
+            "retrieval"
+          ]
+        },
+        "factors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "intervention_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "loop_mask": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[01]{1,16}$"
+        }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparator_cell_id"
+      ],
+      "properties": {
+        "comparator_cell_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compute_match_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suite",
+        "split",
+        "dataset_ref"
+      ],
+      "properties": {
+        "suite": {
+          "type": "string",
+          "minLength": 1
+        },
+        "split": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dataset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "holdout_manifest_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seed",
+        "environment_ref",
+        "resource_class"
+      ],
+      "properties": {
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "environment_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_class": {
+          "enum": [
+            "cpu",
+            "gpu",
+            "macos-mlx-build",
+            "tpu"
+          ]
+        },
+        "provider_job_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provider_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "source_revision"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 3
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 7
+        },
+        "source_lineage_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._/-]{0,127}$"
+    }
+  }
+}
