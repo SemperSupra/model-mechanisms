@@ -1,0 +1,35 @@
+name: b4-kaggle-direct-source-preflight
+on:
+  pull_request:
+    paths:
+      - 'adapters/providers/kaggle/**'
+      - 'tests/test_kaggle_direct_port.py'
+      - 'docs/provenance/import-b4-kaggle-direct.md'
+      - '.github/workflows/b4-kaggle-direct-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  public-offline-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify clean ephemeral Python standard library
+        run: |
+          set -euo pipefail
+          python3 -VV
+          python3 -m compileall -q adapters/providers/kaggle
+          python3 -m unittest discover -s tests -p 'test_kaggle_direct_port.py' -v
+          python3 adapters/providers/kaggle/direct.py --action plan --workload gpu-cuda-v1 --out-dir "${RUNNER_TEMP}/mm-b4-gpu"
+          python3 adapters/providers/kaggle/direct.py --action plan --workload tpu-bridge-v1 --out-dir "${RUNNER_TEMP}/mm-b4-tpu"
+          python3 - "${RUNNER_TEMP}" <<'PY'
+          import json, pathlib, sys
+          for name in ('gpu','tpu'):
+              path=pathlib.Path(sys.argv[1])/('mm-b4-'+name)/'control-receipt.json'
+              receipt=json.loads(path.read_text())
+              assert receipt['state']=='PLANNED'
+              assert receipt['is_terminal'] is False
+              assert len(receipt['source_sha256'])==64
+          PY
