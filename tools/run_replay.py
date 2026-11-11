@@ -24,7 +24,7 @@ def load_spec(path: Path) -> dict:
         raise ValueError("unsupported replay spec version")
 
     module=spec.get("module")
-    if not isinstance(module,str) or not __import__("re").fullmatch(r"experiments\\.[A-Za-z][A-Za-z0-9_]*",module):
+    if not isinstance(module,str) or not re.fullmatch(r"experiments\.[A-Za-z][A-Za-z0-9_]*",module):
         raise ValueError("module must be under experiments.*")
 
     args=spec.get("arguments")
