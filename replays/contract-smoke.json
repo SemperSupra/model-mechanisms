@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "bootstrap/contract-smoke",
+  "resource_class": "cpu",
+  "environment_ref": "environments/python3-stdlib.json",
+  "module": "experiments.contract_smoke",
+  "arguments": {
+    "seed": 17,
+    "count": 16
+  },
+  "timeout_seconds": 30
+}
