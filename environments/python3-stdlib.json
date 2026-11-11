@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "python3-stdlib-public-ci",
+  "runtime": "python",
+  "python_min": "3.11",
+  "resource_class": "cpu",
+  "requirements_file": null,
+  "execution_surface": "public-github-actions-standard",
+  "claim": "source_only_contract_smoke"
+}
