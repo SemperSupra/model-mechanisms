@@ -20,7 +20,7 @@ class Stage1PreflightTests(unittest.TestCase):
         correct=m.info_nce_reference(qs,qs,qs,1.0)
         wrong=m.info_nce_reference(qs,list(reversed(qs)),qs,1.0)
         self.assertGreater(wrong,correct)
-        self.assertAlmostEqual(wrong,math.log1p(math.exp(1)),places=12)
+        self.assertAlmostEqual(wrong,math.log(2),places=12)
     def test_singleton_has_no_negative_signal(self):
         self.assertEqual(m.info_nce_reference([[1.,0.]],[[1.,0.]],[[1.,0.]],0.1),0.0)
     def test_row_scales_cancel_and_temperature_valid(self):
