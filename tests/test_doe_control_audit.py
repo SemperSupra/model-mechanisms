@@ -95,7 +95,7 @@ class MatchedDesignTests(unittest.TestCase):
         for c in (a, b):
             c["workload"]["holdout_manifest_ref"] = "sha256:locked-holdout"
         audit.validate_cells([a, b])
-        b["primary_outcome"] = ""
+        b.pop("primary_outcome")
         with self.assertRaisesRegex(audit.InvalidDesign, "CONFIRMATION_OUTCOME"):
             audit.validate_cells([a, b])
 
