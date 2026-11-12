@@ -1,0 +1,48 @@
+name: meg-publisher-stage0-parity
+
+on:
+  pull_request:
+    paths:
+      - "tools/meg_reconstruct_stage0.py"
+      - "tools/verify_meg_stage0_publisher.py"
+      - "tests/test_meg_publisher_stage0_parity.py"
+      - ".github/workflows/meg-publisher-stage0-parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-official-counterfact-recipe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate no-download synthetic parity controls
+        run: python3 -m unittest discover -s tests -p 'test_meg_publisher_stage0_parity.py' -v
+      - name: Fetch exact official publisher ZIP ephemerally
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/meg-publisher"
+          curl --fail --location --silent --show-error --max-time 55 \
+            --max-filesize 512000000 \
+            "https://proceedings.iclr.cc/paper_files/paper/2026/file/7926a9c34166da5a6a681cc0fe6d8a28-Supplemental-Conference.zip" \
+            -o "$RUNNER_TEMP/meg-publisher/official-supplement.zip"
+      - name: Independently reproduce deterministic CounterFact ID derivation in memory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/verify_meg_stage0_publisher.py \
+            --official-supplement "$RUNNER_TEMP/meg-publisher/official-supplement.zip" \
+            --receipt "$RUNNER_TEMP/meg-publisher/parity-receipt.json"
+      - name: Publish derived METHOD RECEIPT ONLY, not publisher data
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: meg-stage0-publisher-parity
+          path: ${{ runner.temp }}/meg-publisher/parity-receipt.json
+          retention-days: 7
+          if-no-files-found: warn
