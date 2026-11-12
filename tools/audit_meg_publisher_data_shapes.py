@@ -100,6 +100,8 @@ def text_overlap_first_last(records: list[dict]) -> dict:
             raise ValueError("INVALID_STAGE1_REPHRASE_TYPE")
         raw_texts=[question,*rephrases]
         return {" ".join(s.split()).casefold() for s in raw_texts if s.strip()}
+    for record in validation + training:
+        texts(record)  # fail legibly before querying fields in any comprehension
     train_src={" ".join(r["src"].split()).casefold() for r in training}
     val_src={" ".join(r["src"].split()).casefold() for r in validation}
     training_texts=set().union(*(texts(r) for r in training)) if training else set()
