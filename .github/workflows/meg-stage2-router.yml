@@ -1,0 +1,47 @@
+name: meg-stage2-source-router-preflight
+
+on:
+  pull_request:
+    paths:
+      - "tools/meg_stage2_router_preflight.py"
+      - "tests/test_meg_stage2_router_preflight.py"
+      - "docs/rdte/meg-stage2-router.md"
+      - ".github/workflows/meg-stage2-router.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-router:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test synthetic 10-way probability/abstention oracles
+        run: python3 -m unittest discover -s tests -p 'test_meg_stage2_router_preflight.py' -v
+      - name: Download pinned upstream source/config as text only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/meg-stage2"
+          BASE="https://raw.githubusercontent.com/RodeWayne/MeG-for-Knowledge-Editing/9fa8ae10cf33c82dd2200057f70dfcb73388cd74"
+          curl --fail --location --silent --show-error --max-time 30 "$BASE/train_familiar.py" -o "$RUNNER_TEMP/meg-stage2/source.txt"
+          curl --fail --location --silent --show-error --max-time 30 "$BASE/hparams/stage_2/config.yaml" -o "$RUNNER_TEMP/meg-stage2/hparams.txt"
+      - name: Static AST syntax diagnosis and independent entropy oracle; never execute author source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/meg_stage2_router_preflight.py \
+            --source "$RUNNER_TEMP/meg-stage2/source.txt" \
+            --hparams "$RUNNER_TEMP/meg-stage2/hparams.txt" \
+            --receipt "$RUNNER_TEMP/meg-stage2/receipt.json"
+      - name: Upload sanitized blocker and mathematical oracle receipt only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: meg-stage2-router-preflight
+          path: ${{ runner.temp }}/meg-stage2/receipt.json
+          retention-days: 7
+          if-no-files-found: error
