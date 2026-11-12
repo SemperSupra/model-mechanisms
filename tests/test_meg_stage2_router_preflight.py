@@ -25,7 +25,8 @@ class RouterSourceTests(unittest.TestCase):
     def test_exact_threshold_comparison_and_numeric_stability(self):
         logits=[1000.]+[-1000.]*9
         self.assertEqual(m.route(logits)["class_index"],0)
-        self.assertEqual(m.route(logits,0.)["class_index"],0)
+        self.assertEqual(m.route(logits,0.)["class_index"],-1)  # source clamps p >=1e-8, leaving small positive entropy
+        self.assertEqual(m.route(logits,1e-5)["class_index"],0)
         self.assertTrue(m.route([0.]*10,math.log(10)-1e-5)["abstained"])
         self.assertFalse(m.route([0.]*10,math.log(10)+1e-5)["abstained"])
     def test_bad_10class_shape_nonfinite_probs_and_threshold_rejected(self):
