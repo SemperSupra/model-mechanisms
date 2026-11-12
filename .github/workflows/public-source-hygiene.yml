@@ -1,0 +1,33 @@
+name: public-source-hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-tree-hygiene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Bounded offline path and artifact rejection tests
+        run: python3 -m unittest discover -s tests -p 'test_public_tree_hygiene.py' -v
+      - name: Check tracked public source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_public_tree.py | tee "${RUNNER_TEMP}/source-hygiene.json"
+      - name: Publish sanitized file-policy receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: public-tree-hygiene
+          path: ${{ runner.temp }}/source-hygiene.json
+          retention-days: 7
+          if-no-files-found: error
