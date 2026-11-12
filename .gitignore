@@ -1,0 +1,51 @@
+# Ephemeral development and build state
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.coverage
+.DS_Store
+
+# Secret-bearing local environment/config files
+.env
+.env.*
+!.env.example
+kaggle.json
+credentials.json
+service-account.json
+.netrc
+.npmrc
+.pypirc
+id_rsa
+id_ed25519
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Cloud receipts, local runs and large/generated model artifacts
+.kaggle/
+.kaggle-*/
+.kaggle-latent/
+.run-cache/
+.model-cache/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.gguf
+*.onnx
+*.whl
+*.dmg
+*.zip
+*.tar.gz
+
+# This is defense-in-depth. Repository CI also scans TRACKED files.
+# Do not blanket-ignore source datasets/manifests; their use is source-reviewed.
