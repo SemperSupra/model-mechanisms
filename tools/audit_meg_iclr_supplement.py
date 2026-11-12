@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -34,6 +35,56 @@ def sha_stream(stream) -> str:
     return h.hexdigest()
 
 
+def inspect_inner_zip(raw: bytes, origin: str) -> dict:
+    """Inspect one embedded ZIP level only, with byte and member limits.
+
+    The nested archive stays inside process memory; nothing is extracted to
+    disk or installed. No further recursive ZIP traversal is attempted.
+    """
+    if len(raw) > MAX_ARCHIVE_BYTES:
+        raise ValueError("NESTED_ARCHIVE_OVERSIZED")
+    items = []
+    total = 0
+    with zipfile.ZipFile(io.BytesIO(raw)) as zip_file:
+        infos = zip_file.infolist()
+        if not 1 <= len(infos) <= MAX_FILES:
+            raise ValueError("NESTED_INVALID_MEMBER_COUNT")
+        seen = set()
+        for ent in infos:
+            name = ent.filename
+            path = PurePosixPath(name)
+            if (not name or name.startswith("/") or "\\" in name
+                or ".." in path.parts or name in seen):
+                raise ValueError("NESTED_UNSAFE_OR_DUPLICATE_MEMBER")
+            seen.add(name)
+            if stat.S_ISLNK(ent.external_attr >> 16) or ent.flag_bits & 1:
+                raise ValueError("NESTED_SYMLINK_OR_ENCRYPTION")
+            if ent.file_size > MAX_MEMBER_BYTES:
+                raise ValueError("NESTED_MEMBER_OVERSIZED")
+            total += ent.file_size
+            if total > MAX_UNPACKED_TOTAL:
+                raise ValueError("NESTED_ZIP_BOMB_SIZE")
+            if ent.is_dir():
+                continue
+            with zip_file.open(ent) as stream:
+                digest = sha_stream(stream)
+            items.append({
+                "name": name,
+                "sha256": digest,
+                "bytes": ent.file_size,
+                "possible_protocol_input": any(k in name.lower() for k in INTERESTING),
+            })
+    return {
+        "outer_member": origin,
+        "archive_sha256": hashlib.sha256(raw).hexdigest(),
+        "member_count": len(items),
+        "uncompressed_bytes": total,
+        "members": items,
+        "extracted": False,
+        "executed": False,
+    }
+
+
 def inspect(path: Path) -> dict:
     if not path.is_file() or path.stat().st_size > MAX_ARCHIVE_BYTES:
         raise ValueError("SUPPLEMENT_ARCHIVE_MISSING_OR_TOO_LARGE")
@@ -42,6 +93,7 @@ def inspect(path: Path) -> dict:
     if not zipfile.is_zipfile(path):
         raise ValueError("NOT_A_ZIP_SUPPLEMENT")
     members = []
+    nested_archives = []
     total_size = 0
     with zipfile.ZipFile(path) as archive:
         entries = archive.infolist()
@@ -75,6 +127,10 @@ def inspect(path: Path) -> dict:
                 "bytes": entry.file_size,
                 "possible_protocol_input": any(k in name.lower() for k in INTERESTING),
             })
+            if name.lower().endswith(".zip"):
+                with archive.open(entry) as stream:
+                    nested = stream.read(MAX_ARCHIVE_BYTES + 1)
+                nested_archives.append(inspect_inner_zip(nested, name))
     return {
         "schema": "model-mechanisms.iclr-supplement-inventory/v1",
         "status": "METADATA_INSPECTED_ONLY",
@@ -83,6 +139,7 @@ def inspect(path: Path) -> dict:
         "archive_bytes": path.stat().st_size,
         "member_count": len(members),
         "members": members,
+        "nested_archives": nested_archives,
         "files_extracted": False,
         "third_party_code_executed": False,
         "author_checkpoint_recovered": False,
@@ -106,6 +163,19 @@ def main() -> None:
         "member_count": report["member_count"],
         "possible_protocol_inputs": [i["name"] for i in report["members"] if i["possible_protocol_input"]],
         "members": [{"name": i["name"], "bytes": i["bytes"], "sha256": i["sha256"]} for i in report["members"]],
+        "nested": [
+            {
+                "outer_member": n["outer_member"],
+                "member_count": n["member_count"],
+                "uncompressed_bytes": n["uncompressed_bytes"],
+                "members": [
+                    {"name": m["name"], "bytes": m["bytes"], "sha256": m["sha256"]}
+                    for m in n["members"][:150]
+                ],
+                "truncated_in_log": len(n["members"]) > 150,
+            }
+            for n in report["nested_archives"]
+        ],
         "author_checkpoint_recovered": False,
     }, sort_keys=True))
 
