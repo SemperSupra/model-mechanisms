@@ -68,5 +68,34 @@ class SupplementIndexTests(unittest.TestCase):
             self.assertFalse(info["third_party_code_executed"])
 
 
+    def test_nested_official_style_code_and_data_archives(self):
+        import io
+        def nested(files):
+            stream = io.BytesIO()
+            with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as zf:
+                for name, data in files.items():
+                    zf.writestr(name, data)
+            return stream.getvalue()
+        with tempfile.TemporaryDirectory() as tmp:
+            code = nested({"README.md": b"synthetic readme"})
+            data = nested({
+                "data/new_split_data/zsre_train.json": b'{"synthetic":true}',
+                "data/raw_data/get_rephrase.prompt": b"synthetic test prompt",
+            })
+            path = self.make_zip(Path(tmp), {
+                "code_and_data_for_our_MeG/code_for_our_MeG.zip": code,
+                "code_and_data_for_our_MeG/data_for_our_MeG.zip": data,
+            })
+            report = tool.inspect(path)
+            self.assertEqual(report["member_count"], 2)
+            self.assertEqual(len(report["nested_archives"]), 2)
+            self.assertEqual(report["nested_archives"][1]["member_count"], 2)
+            self.assertTrue(
+                any(m["possible_protocol_input"]
+                    for m in report["nested_archives"][1]["members"])
+            )
+            self.assertFalse(report["files_extracted"])
+            self.assertFalse(report["third_party_code_executed"])
+
 if __name__ == "__main__":
     unittest.main()
