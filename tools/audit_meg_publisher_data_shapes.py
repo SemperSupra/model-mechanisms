@@ -57,26 +57,44 @@ def overlap_first_last(n: int, first: int = 1024, last: int = 2000) -> dict:
     }
 
 def stage1_field_profile(records: list[dict]) -> dict:
-    """Aggregate source-key/types only; never return data values."""
-    n=len(records)
-    src_ok=sum(isinstance(x.get("src"),str) for x in records)
-    rephrase_ok=sum(
-        isinstance(x.get("rephrase"),list)
-        and all(isinstance(p,str) for p in x["rephrase"])
-        for x in records
-    )
-    both_ok=sum(
-        isinstance(x.get("src"),str)
-        and isinstance(x.get("rephrase"),list)
-        and all(isinstance(p,str) for p in x["rephrase"])
-        for x in records
-    )
+    """Aggregate source-key/type counts by source-order partition; no values."""
+    def summarize(rows: list[dict]) -> dict:
+        stats={
+            "records":len(rows),
+            "src_string":0,
+            "rephrase_list_of_strings":0,
+            "rephrase_as_string":0,
+            "rephrase_null":0,
+            "rephrase_missing":0,
+            "rephrase_other":0,
+            "trainer_compatible":0,
+            "effective_pairs_for_valid_lists":0,
+        }
+        for item in rows:
+            src_ok=isinstance(item.get("src"),str)
+            if src_ok:stats["src_string"]+=1
+            if "rephrase" not in item:
+                stats["rephrase_missing"]+=1
+            else:
+                val=item["rephrase"]
+                if isinstance(val,list) and all(isinstance(x,str) for x in val):
+                    stats["rephrase_list_of_strings"]+=1
+                    stats["effective_pairs_for_valid_lists"]+=min(len(val),2)
+                    if src_ok:stats["trainer_compatible"]+=1
+                elif isinstance(val,str):stats["rephrase_as_string"]+=1
+                elif val is None:stats["rephrase_null"]+=1
+                else:stats["rephrase_other"]+=1
+        return stats
+    all_stats=summarize(records)
+    training=summarize(records[max(0,len(records)-2000):])
+    validation=summarize(records[:1024])
     return {
-        "total_records":n,
-        "src_string_records":src_ok,
-        "rephrase_string_list_records":rephrase_ok,
-        "trainer_compatible_records":both_ok,
-        "trainer_compatible":both_ok==n,
+        "total_records":len(records),
+        "src_string_records":all_stats["src_string"],
+        "rephrase_string_list_records":all_stats["rephrase_list_of_strings"],
+        "trainer_compatible_records":all_stats["trainer_compatible"],
+        "trainer_compatible":all_stats["trainer_compatible"]==len(records),
+        "all":all_stats,"training_last_2000":training,"validation_first_1024":validation,
         "source_values_emitted":False,
     }
 
