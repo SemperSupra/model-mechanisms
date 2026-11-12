@@ -56,6 +56,42 @@ def overlap_first_last(n: int, first: int = 1024, last: int = 2000) -> dict:
         "validation_and_training_disjoint_by_index": a <= b,
     }
 
+def text_overlap_first_last(records: list[dict]) -> dict:
+    """Aggregate normalized *text* overlaps, never emit original questions.
+
+    This is not semantic entity-level contamination detection. The released
+    Stage1 validation uses first 1024 records and training last 2000.
+    """
+    if not isinstance(records, list) or any(not isinstance(x,dict) for x in records):
+        raise ValueError("INVALID_STAGE1_RECORDS")
+    n=len(records)
+    validation=records[:1024]
+    training=records[max(0,n-2000):]
+    def texts(record: dict) -> set[str]:
+        question=record.get("src")
+        rephrases=record.get("rephrase")
+        if not isinstance(question,str) or not isinstance(rephrases,list):
+            raise ValueError("INVALID_STAGE1_QUERY_OR_REPHRASES")
+        if any(not isinstance(x,str) for x in rephrases):
+            raise ValueError("INVALID_STAGE1_REPHRASE_TYPE")
+        raw_texts=[question,*rephrases]
+        return {" ".join(s.split()).casefold() for s in raw_texts if s.strip()}
+    train_src={" ".join(r["src"].split()).casefold() for r in training}
+    val_src={" ".join(r["src"].split()).casefold() for r in validation}
+    training_texts=set().union(*(texts(r) for r in training)) if training else set()
+    val_texts=set().union(*(texts(r) for r in validation)) if validation else set()
+    contaminated_validation_records=sum(bool(texts(r)&training_texts) for r in validation)
+    return {
+        "training_records":len(training),
+        "validation_records":len(validation),
+        "unique_src_overlap":len(train_src&val_src),
+        "unique_src_or_rephrase_overlap":len(training_texts&val_texts),
+        "validation_records_with_any_exact_text_overlap":contaminated_validation_records,
+        "deduplication_normalization":"unicode_casefold_collapse_whitespace",
+        "semantic_subject_overlap_evaluated":False,
+        "question_text_or_hashes_emitted":False,
+    }
+
 def validate_shape(rel: str, raw: bytes) -> dict:
     # Enumerates keys only. Never emit subject/prompt/label values or record bytes.
     if rel.endswith(".json"):
@@ -84,6 +120,7 @@ def audit(path: Path) -> dict:
         raise ValueError("DATA_ZIP_SHA256_MISMATCH")
     observed = []
     stage1 = None
+    stage1_text_overlap = None
     with zipfile.ZipFile(io.BytesIO(inner_raw)) as inner:
         actual = {x.filename for x in inner.infolist() if not x.is_dir()}
         expected = {PREFIX + name for name in EXPECTED}
@@ -103,6 +140,7 @@ def audit(path: Path) -> dict:
             observed.append({"path": member, "sha256": digest, "bytes": expected_size, **shape})
             if relative == "new_split_data/zsre_for_bert_train.json":
                 stage1 = overlap_first_last(shape["record_count"])
+                stage1_text_overlap = text_overlap_first_last(json.loads(raw))
     return {
         "schema": "model-mechanisms.meg-publisher-data-census/v1",
         "status": "SOURCE_SCHEMA_VERIFIED",
@@ -111,6 +149,7 @@ def audit(path: Path) -> dict:
         "file_count": len(observed),
         "files": observed,
         "stage1_zsre_index_overlap": stage1,
+        "stage1_zsre_text_overlap": stage1_text_overlap,
         "publisher_data_bytes_redistributed": False,
         "author_code_executed": False,
         "model_trained": False,
@@ -131,6 +170,7 @@ def main() -> None:
     print(json.dumps({
         "status": result["status"], "file_count": result["file_count"],
         "stage1_zsre_index_overlap": result["stage1_zsre_index_overlap"],
+        "stage1_zsre_text_overlap": result["stage1_zsre_text_overlap"],
         "file_record_counts": {i["path"]: i["record_count"] for i in result["files"]},
         "publisher_data_bytes_redistributed": False,
     }, sort_keys=True))
