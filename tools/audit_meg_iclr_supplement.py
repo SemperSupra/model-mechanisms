@@ -24,7 +24,7 @@ ICLR_SUPPLEMENT_URL = (
 )
 INTERESTING = ("prompt", "config", "hyper", "dataset", "zsre", "counterfact",
                "checkpoint", "weight", "familiar", "encoder", "rephrase", "repro",
-               "seed", "random", "script", "evaluation", "readme", "license")
+               "seed", "random", "script", "train", "evaluation", "readme", "license")
 
 
 def sha_stream(stream) -> str:
