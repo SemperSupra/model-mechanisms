@@ -1,0 +1,27 @@
+name: meg-stage1-fidelity-doe-plan
+
+on:
+  pull_request:
+    paths:
+      - "campaigns/meg-stage1-fidelity-factorial.json"
+      - "tools/validate_meg_stage1_design.py"
+      - "tests/test_meg_stage1_fidelity_design.py"
+      - "docs/rdte/meg-stage1-fidelity-factorial.md"
+      - ".github/workflows/meg-stage1-fidelity-plan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate independent no-training source-fidelity DOE
+        run: python3 -m unittest discover -s tests -p 'test_meg_stage1_fidelity_design.py' -v
+      - name: Verify exactly four unadmitted factors/cells
+        run: python3 tools/validate_meg_stage1_design.py campaigns/meg-stage1-fidelity-factorial.json
