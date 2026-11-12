@@ -69,6 +69,10 @@ def stage1_field_profile(records: list[dict]) -> dict:
             "rephrase_other":0,
             "trainer_compatible":0,
             "effective_pairs_for_valid_lists":0,
+            "as_published_contrastive_pairs":0,
+            "type_corrected_contrastive_pairs":0,
+            "as_published_character_fragment_pairs":0,
+            "string_fields_shorter_than_two_characters":0,
         }
         for item in rows:
             src_ok=isinstance(item.get("src"),str)
@@ -80,8 +84,17 @@ def stage1_field_profile(records: list[dict]) -> dict:
                 if isinstance(val,list) and all(isinstance(x,str) for x in val):
                     stats["rephrase_list_of_strings"]+=1
                     stats["effective_pairs_for_valid_lists"]+=min(len(val),2)
+                    stats["as_published_contrastive_pairs"]+=min(len(val),2)
+                    stats["type_corrected_contrastive_pairs"]+=min(len(val),2)
                     if src_ok:stats["trainer_compatible"]+=1
-                elif isinstance(val,str):stats["rephrase_as_string"]+=1
+                elif isinstance(val,str):
+                    stats["rephrase_as_string"]+=1
+                    # Original enumerate(str) emits individual characters.
+                    chars=min(len(val),2)
+                    stats["as_published_contrastive_pairs"]+=chars
+                    stats["as_published_character_fragment_pairs"]+=chars
+                    stats["type_corrected_contrastive_pairs"]+=(1 if val else 0)
+                    if len(val)<2:stats["string_fields_shorter_than_two_characters"]+=1
                 elif val is None:stats["rephrase_null"]+=1
                 else:stats["rephrase_other"]+=1
         return stats
