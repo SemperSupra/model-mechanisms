@@ -110,6 +110,9 @@ def validate_plan(plan: dict) -> None:
         raise ValueError("unapproved scientific admission state")
     if plan.get("loop_depth") != DEPTH:
         raise ValueError("unexpected loop depth")
+    if (plan.get("nominal_total_treatment_strength") != "1"
+        or plan.get("controls_required_beyond_mask_zero") != list(CONTROLS[1:])):
+        raise ValueError("missing or altered intervention budget and controls")
     cells = plan.get("cells")
     expected = {"".join(bits) for bits in product("01", repeat=DEPTH)}
     if not isinstance(cells, list) or len(cells) != len(expected):
@@ -123,6 +126,10 @@ def validate_plan(plan: dict) -> None:
             or cell.get("reference_control_cell_id") != "mask-0000"
             or cell.get("active_pass_count") != mask.count("1")
             or cell.get("nominal_strength_each_active_pass") != nominal_strength(mask)
+            or cell.get("pass_order") != "left_to_right_earliest_to_latest"
+            or cell.get("treatment") != ("untreated_baseline" if "1" not in mask
+                                         else "same_frozen_intervention")
+            or cell.get("seed") != plan.get("seed")
             or cell.get("admitted") is not False
             or cell.get("measured") is not False):
             raise ValueError("cell differs from fixed, unadmitted study contract")
