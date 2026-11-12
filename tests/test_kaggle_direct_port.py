@@ -244,5 +244,70 @@ class TestKaggleLatentDirect(unittest.TestCase):
                 with self.assertRaisesRegex(module.Denied, "BRIDGE"):
                     module.verify_science(record, "tpu-bridge-v1", expected)
 
+class TestKaggleProviderStateNormalization(unittest.TestCase):
+    def test_exact_provider_states_only(self):
+        positives = (
+            ("RUNNING", "NONTERMINAL"),
+            ("QUEUED", "NONTERMINAL"),
+            ("KernelStatus.KERNEL_STATUS_PENDING", "NONTERMINAL"),
+            ("KERNEL_STATUS_COMPLETE", "TERMINAL_SUCCESS"),
+            ("SUCCESS", "TERMINAL_SUCCESS"),
+            ("FAILED", "TERMINAL_FAILED"),
+            ("KernelStatus.KERNEL_STATUS_CANCELED", "TERMINAL_FAILED"),
+        )
+        for raw, expected in positives:
+            with self.subTest(raw=raw):
+                self.assertEqual(module.classify_native_status(raw), expected)
+
+    def test_unknown_or_ambiguous_states_fail_closed(self):
+        examples = (
+            "INCOMPLETE", "NOT_RUNNING", "NOT_SUCCESS",
+            "SUCCESS_BUT_RUNNING", "RUNNING_COMPLETE",
+            "ERROR_SUCCESS", "PENDING_UNKNOWN", "Kernel.X.Y",
+            "KernelStatus.KERNEL_STATUS_INCOMPLETE",
+            "run", None, 42, "", object(),
+        )
+        for raw in examples:
+            with self.subTest(raw=str(raw)):
+                self.assertEqual(module.classify_native_status(raw), "UNKNOWN")
+
+    def test_observe_never_reads_unknown_or_failed_result(self):
+        from types import SimpleNamespace
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        class Fake:
+            def __init__(self, status):
+                self.status = status
+            def kernels_status(self, ref):
+                return SimpleNamespace(status=self.status)
+            def kernels_output(self, *a, **k):
+                raise AssertionError("result retrieval must not be reached")
+        p = module.plan("observe", "gpu-cuda-v1", 1)
+        with TemporaryDirectory() as tmp, patch.object(module, "identity", return_value="testuser"), patch.object(
+            module, "require_native_version", return_value=None
+        ):
+            for status in ("INCOMPLETE", "NOT_RUNNING", "SUCCESS_AND_ERROR"):
+                with self.subTest(status=status), self.assertRaisesRegex(
+                    module.Denied, "PROVIDER_STATUS_UNKNOWN"
+                ):
+                    module.observe(Fake(status), p, Path(tmp))
+            receipt = module.observe(Fake("FAILED"), p, Path(tmp))
+            self.assertEqual(receipt["state"], "TERMINAL_FAILED")
+            self.assertTrue(receipt["is_terminal"])
+
+    def test_unfamiliar_inventory_status_denies_submission(self):
+        from types import SimpleNamespace
+        class Fake:
+            def kernels_list_with_response(self, **kwargs):
+                return SimpleNamespace(
+                    kernels=[SimpleNamespace(ref="user/mech-b4-other-job")],
+                    next_page_token=None
+                )
+            def kernels_status(self, ref):
+                return SimpleNamespace(status="INCOMPLETE")
+        with self.assertRaisesRegex(module.Denied, "EXISTING_KAGGLE_EXPERIMENT_UNKNOWN"):
+            module.ensure_not_existing_or_active(Fake(), "user/mech-b4-gpu-cuda-v1")
+
+
 if __name__ == "__main__":
     unittest.main()
