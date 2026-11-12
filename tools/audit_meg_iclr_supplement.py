@@ -105,6 +105,7 @@ def main() -> None:
         "archive_sha256": report["archive_sha256"],
         "member_count": report["member_count"],
         "possible_protocol_inputs": [i["name"] for i in report["members"] if i["possible_protocol_input"]],
+        "members": [{"name": i["name"], "bytes": i["bytes"], "sha256": i["sha256"]} for i in report["members"]],
         "author_checkpoint_recovered": False,
     }, sort_keys=True))
 
