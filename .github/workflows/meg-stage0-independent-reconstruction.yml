@@ -1,0 +1,56 @@
+name: meg-stage0-independent-reconstruction
+
+on:
+  pull_request:
+    paths:
+      - "tools/meg_reconstruct_stage0.py"
+      - "tests/test_meg_reconstruct_stage0.py"
+      - "docs/rdte/meg-reconstruction-stage0.md"
+      - ".github/workflows/meg-stage0-independent-reconstruction.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-recipe-reconstruction:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Source syntax, no provider or data download
+        run: python3 -m py_compile tools/meg_reconstruct_stage0.py tests/test_meg_reconstruct_stage0.py
+      - name: Run independently constructed stage-zero falsification tests
+        run: python3 -m unittest discover -s tests -p 'test_meg_reconstruct_stage0.py' -v
+      - name: Produce sanitized synthetic derivation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/meg-stage0"
+          python3 - "${RUNNER_TEMP}/meg-stage0/input.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], "w", encoding="utf-8") as out:
+              json.dump([{"subject":"invented-alpha"}, {"subject":"invented-beta"}], out)
+          PY
+          python3 tools/meg_reconstruct_stage0.py \
+            --mode familiarity-labels \
+            --input "${RUNNER_TEMP}/meg-stage0/input.json" \
+            --output "${RUNNER_TEMP}/meg-stage0/derived.json" \
+            --receipt "${RUNNER_TEMP}/meg-stage0/receipt.json" \
+            --seed 11
+          python3 - "${RUNNER_TEMP}/meg-stage0/receipt.json" <<'PY'
+          import json, sys
+          receipt=json.load(open(sys.argv[1]))
+          assert receipt["status"]=="RECONSTRUCTED_DERIVATIVE"
+          assert receipt["claim"]=="NOT_AUTHOR_IDENTICAL"
+          assert receipt["scientific_reproduction_complete"] is False
+          PY
+      - name: Publish synthetic receipt, never third-party original datasets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: meg-stage0-synthetic-derivation
+          path: ${{ runner.temp }}/meg-stage0/receipt.json
+          retention-days: 7
+          if-no-files-found: error
