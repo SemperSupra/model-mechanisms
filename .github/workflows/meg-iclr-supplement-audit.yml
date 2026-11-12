@@ -22,16 +22,23 @@ jobs:
           persist-credentials: false
       - name: Test safe metadata-only ZIP inspector with synthetic files
         run: python3 -m unittest discover -s tests -p 'test_meg_iclr_supplement.py' -v
+      - name: Inspect publisher HEAD response before bounded download
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --head --location --silent --show-error --max-time 30 \
+            "https://proceedings.iclr.cc/paper_files/paper/2026/file/7926a9c34166da5a6a681cc0fe6d8a28-Supplemental-Conference.zip" \
+            | awk 'tolower($1) == "content-length:" {print "ICLR_CONTENT_LENGTH_BYTES=" $2}'
       - name: Download official ICLR supplementary ZIP to ephemeral temp only
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/meg-iclr"
           curl --fail --location --silent --show-error --max-time 50 --retry 1 \
-            --max-filesize 80000000 \
+            --max-filesize 512000000 \
             "https://proceedings.iclr.cc/paper_files/paper/2026/file/7926a9c34166da5a6a681cc0fe6d8a28-Supplemental-Conference.zip" \
             -o "$RUNNER_TEMP/meg-iclr/supplement.zip"
-          test "$(wc -c < "$RUNNER_TEMP/meg-iclr/supplement.zip")" -le 80000000
+          test "$(wc -c < "$RUNNER_TEMP/meg-iclr/supplement.zip")" -le 512000000
       - name: Hash archive members without extraction or code execution
         shell: bash
         run: |
