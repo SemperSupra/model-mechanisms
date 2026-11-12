@@ -1,0 +1,92 @@
+{
+  "schema": "model-mechanisms.meg-stage1-fidelity-factorial/v1",
+  "status": "PRE_REGISTERED_NOT_ADMITTED",
+  "scientific_question": "Does released Stage1 paraphrase type handling and omitted gradient reset alter recovered BERT text-encoder effectiveness?",
+  "author_code_revision": "9fa8ae10cf33c82dd2200057f70dfcb73388cd74",
+  "author_train_git_blob": "df2f3eaa23dda322657f2821ffef899f11273bc7",
+  "author_config_git_blob": "86cb6baa036fd5da0ba50f465f0f42d55add7366",
+  "original_publisher_stage1_data_sha256": "438dc2f1c98aec85f828eaf95fed2f40c19d470a1cdb6723f9103aa8e304ec18",
+  "dataset_records": 4000,
+  "training_source_records": 2000,
+  "validation_source_records": 1024,
+  "positonal_overlap_count": 0,
+  "source_literal_training_pairs": 4000,
+  "source_literal_character_fragment_pairs": 2664,
+  "type_corrected_training_pairs": 2668,
+  "source_training_full_epochs": 30000,
+  "original_batch_size": 4000,
+  "screen_budget": {
+    "max_records": 16,
+    "max_epochs": 1,
+    "max_device_type": "cpu",
+    "provider_calls_allowed": false
+  },
+  "factors": {
+    "paraphrase_policy": [
+      "as_published_character_iteration",
+      "type_corrected_full_question"
+    ],
+    "gradient_policy": [
+      "as_published_accumulated_gradients",
+      "reset_gradients_each_batch"
+    ]
+  },
+  "cells": [
+    {
+      "cell_id": "literal-accum",
+      "paraphrase_policy": "as_published_character_iteration",
+      "gradient_policy": "as_published_accumulated_gradients",
+      "baseline_cell_id": "literal-accum",
+      "expected_training_pairs_from_publisher": 4000,
+      "character_fragment_pairs": 2664,
+      "measurement": null,
+      "admitted": false,
+      "executed": false
+    },
+    {
+      "cell_id": "literal-reset",
+      "paraphrase_policy": "as_published_character_iteration",
+      "gradient_policy": "reset_gradients_each_batch",
+      "baseline_cell_id": "literal-accum",
+      "expected_training_pairs_from_publisher": 4000,
+      "character_fragment_pairs": 2664,
+      "measurement": null,
+      "admitted": false,
+      "executed": false
+    },
+    {
+      "cell_id": "typed-accum",
+      "paraphrase_policy": "type_corrected_full_question",
+      "gradient_policy": "as_published_accumulated_gradients",
+      "baseline_cell_id": "literal-accum",
+      "expected_training_pairs_from_publisher": 2668,
+      "character_fragment_pairs": 0,
+      "measurement": null,
+      "admitted": false,
+      "executed": false
+    },
+    {
+      "cell_id": "typed-reset",
+      "paraphrase_policy": "type_corrected_full_question",
+      "gradient_policy": "reset_gradients_each_batch",
+      "baseline_cell_id": "literal-accum",
+      "expected_training_pairs_from_publisher": 2668,
+      "character_fragment_pairs": 0,
+      "measurement": null,
+      "admitted": false,
+      "executed": false
+    }
+  ],
+  "holdout_subject_identity": null,
+  "original_bert_model_revision": null,
+  "scientific_promotion_allowed": false,
+  "publisher_rights_review_complete": false,
+  "model_weights_downloaded": false,
+  "training_run_executed": false,
+  "research_authority": "https://github.com/SemperSupra/model-mechanisms-private/issues/5",
+  "remarks": [
+    "as_published denotes literal execution of released code on official ICLR supplementary inputs, not proof of the unpublished author training run",
+    "Type correction and gradient reset are independent factors and must not be combined silently",
+    "Do not infer substantive effects or initiate Kaggle/GPU jobs from planning CI"
+  ]
+}
