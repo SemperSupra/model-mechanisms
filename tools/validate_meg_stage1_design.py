@@ -24,7 +24,7 @@ def validate(doc:dict) -> dict:
         raise ValueError("PUBLISHER_DATA_DRIFT")
     for field,value in {
         "dataset_records":4000,"training_source_records":2000,
-        "validation_source_records":1024,"positonal_overlap_count":0,
+        "validation_source_records":1024,"positional_overlap_count":0,
         "source_literal_training_pairs":4000,
         "source_literal_character_fragment_pairs":2664,
         "type_corrected_training_pairs":2668,
