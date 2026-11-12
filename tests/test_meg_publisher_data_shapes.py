@@ -36,6 +36,24 @@ class PublisherDataShapeTests(unittest.TestCase):
         self.assertTrue(mod.overlap_first_last(10000)["validation_and_training_disjoint_by_index"])
         self.assertEqual(mod.overlap_first_last(2500)["positional_overlap_count"],524)
         with self.assertRaises(ValueError):mod.overlap_first_last(-1)
+    def test_overlap_is_aggregate_only_and_detects_textual_leakage(self):
+        records=[{"src":f"Fictional question {i}","rephrase":[f"paraphrase {i}"]} for i in range(4000)]
+        self.assertEqual(mod.text_overlap_first_last(records)["unique_src_overlap"],0)
+        self.assertEqual(mod.text_overlap_first_last(records)["validation_records_with_any_exact_text_overlap"],0)
+        records[3000]["rephrase"]=["  FICTIONAL   question 12 "]
+        result=mod.text_overlap_first_last(records)
+        self.assertEqual(result["unique_src_overlap"],0)
+        self.assertGreater(result["unique_src_or_rephrase_overlap"],0)
+        self.assertEqual(result["validation_records_with_any_exact_text_overlap"],1)
+        self.assertFalse(result["question_text_or_hashes_emitted"])
+        self.assertFalse(result["semantic_subject_overlap_evaluated"])
+        self.assertNotIn("Fictional question 12",str(result))
+    def test_stage1_invalid_text_shape_rejected(self):
+        for records in ([{"src":0,"rephrase":[]}],
+                        [{"src":"x","rephrase":"not-a-list"}],
+                        [{"src":"x","rephrase":[42]}]):
+            with self.subTest(records=records),self.assertRaises(ValueError):
+                mod.text_overlap_first_last(records)
     def test_no_unpinned_archive_as_success(self):
         with self.assertRaises(ValueError):
             mod.audit(Path("/definitely-does-not-exist/meg.zip"))
