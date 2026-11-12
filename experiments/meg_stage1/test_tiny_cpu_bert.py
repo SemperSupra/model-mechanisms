@@ -14,7 +14,7 @@ class TinyBertStage1Tests(unittest.TestCase):
     def test_info_nce_diagonal_exclusion(self):
         a=torch.eye(2)
         self.assertAlmostEqual(float(m.contrastive(a,a)),math.log1p(math.exp(-1)),places=6)
-        self.assertAlmostEqual(float(m.contrastive(a,torch.flip(a,dims=(0,)))),math.log(2),places=6)
+        self.assertAlmostEqual(float(m.contrastive(a,torch.flip(a,dims=(0,)))),math.log1p(math.exp(1)),places=6)  # flipped positive keys also invert which negatives are masked
     def test_freeze_only_final_transformer_block(self):
         torch.manual_seed(m.SEED)
         model,parameters=m._tiny_model()
