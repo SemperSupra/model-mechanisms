@@ -1,0 +1,47 @@
+name: meg-publisher-data-census
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_meg_publisher_data_shapes.py"
+      - "tests/test_meg_publisher_data_shapes.py"
+      - "docs/rdte/meg-publisher-data-census.md"
+      - ".github/workflows/meg-publisher-data-census.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  data-census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Synthetic integrity and split-math unit tests
+        run: python3 -m unittest discover -s tests -p 'test_meg_publisher_data_shapes.py' -v
+      - name: Acquire exact official ICLR ZIP in disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/meg-source-census"
+          curl --fail --location --silent --show-error --max-time 90 \
+            --max-filesize 512000000 \
+            "https://proceedings.iclr.cc/paper_files/paper/2026/file/7926a9c34166da5a6a681cc0fe6d8a28-Supplemental-Conference.zip" \
+            -o "$RUNNER_TEMP/meg-source-census/official.zip"
+      - name: Verify source file hashes and structural counts without publishing bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/audit_meg_publisher_data_shapes.py \
+            --publisher-zip "$RUNNER_TEMP/meg-source-census/official.zip" \
+            --receipt "$RUNNER_TEMP/meg-source-census/receipt.json"
+      - name: Upload sanitized metadata receipt only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: meg-original-publisher-data-census
+          path: ${{ runner.temp }}/meg-source-census/receipt.json
+          retention-days: 7
+          if-no-files-found: error
