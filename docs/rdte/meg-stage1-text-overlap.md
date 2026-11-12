@@ -1,0 +1,11 @@
+# MeG Stage 1: original publisher-data text-overlap audit
+
+The [publisher schema census PR #15](https://github.com/SemperSupra/model-mechanisms/pull/15) identified no *positional* overlap between the first 1,024 validation and last 2,000 training records in the official 4,000-record `zsre_for_bert_train.json`. It also found 1,332 string-valued training `rephrase` fields in a path where the released trainer takes the first two iterable elements. We must check exact text collisions under both **source-literal** and **type-corrected** training policies, without revealing publisher question content.
+
+The read-only utility `tools/meg_stage1_text_overlap.py` verifies the official ICLR outer ZIP SHA256 `d8abdd06a77318d0af5f6f3414092eafe3b29a3fe10eb890704d6c237c760d71`, nested data ZIP SHA256 `10f0cad94529f9d1522a34dad9379e6f7e15ea51f9500180fe4f892edffde088`, and original Stage 1 dataset SHA256 `438dc2f1c98aec85f828eaf95fed2f40c19d470a1cdb6723f9103aa8e304ec18`.
+
+It normalizes strings using Unicode NFKC, casefold and whitespace collapse and compares training original questions and training paraphrases against validation original questions and **first validation paraphrase**, matching the source's `val()` selection. It reports aggregate collision counts under source-literal and corrected whole-string policies. No individual source text, answer, subject, prompt or per-item hash is included in logs/receipts. The publisher ZIP is downloaded ephemerally by public GitHub Actions; no source bytes are uploaded or redistributed.
+
+**Limits:** exact normalized text overlap is not a semantic/entity-identity overlap detector, and its absence cannot establish independent holdout validity. Later subject-level hashed manifests with private/rights-reviewed input handling remain necessary. This is not BERT training or a measured MeG editing effect.
+
+Science DLE: [Model Mechanisms private #5](https://github.com/SemperSupra/model-mechanisms-private/issues/5). Foundry source authority: [private #35](https://github.com/SemperSupra/model-artifact-foundry-private/issues/35). Stacked on [PR #15](https://github.com/SemperSupra/model-mechanisms/pull/15) as an independent source-read-only workcell.

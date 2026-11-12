@@ -1,0 +1,47 @@
+name: meg-stage1-original-text-overlap
+
+on:
+  pull_request:
+    paths:
+      - "tools/meg_stage1_text_overlap.py"
+      - "tests/test_meg_stage1_text_overlap.py"
+      - "docs/rdte/meg-stage1-text-overlap.md"
+      - ".github/workflows/meg-stage1-text-overlap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  aggregate-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Synthetic negative controls, no publisher data
+        run: python3 -m unittest discover -s tests -p 'test_meg_stage1_text_overlap.py' -v
+      - name: Acquire publisher archive ephemerally
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/meg-stage1-text"
+          curl --fail --location --silent --show-error --max-time 70 \
+            --max-filesize 512000000 \
+            "https://proceedings.iclr.cc/paper_files/paper/2026/file/7926a9c34166da5a6a681cc0fe6d8a28-Supplemental-Conference.zip" \
+            -o "$RUNNER_TEMP/meg-stage1-text/publisher.zip"
+      - name: Inspect aggregate overlaps; no individual question output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/meg_stage1_text_overlap.py \
+            --official-supplement "$RUNNER_TEMP/meg-stage1-text/publisher.zip" \
+            --receipt "$RUNNER_TEMP/meg-stage1-text/aggregate.json"
+      - name: Upload only aggregate collision counts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: meg-stage1-original-text-collision-counts
+          path: ${{ runner.temp }}/meg-stage1-text/aggregate.json
+          retention-days: 7
+          if-no-files-found: error
