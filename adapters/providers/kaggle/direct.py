@@ -214,6 +214,27 @@ def observe(api, p: dict, out: Path) -> dict:
             "native_version": version, "science_sha256": sha256(raw),
             "verified_metrics": result}
 
+# This is defense-in-depth accidental-execution policy, not authentication.
+# Only a separately reviewed protected GHA environment may supply credentials.
+# No such privileged workflow is enabled by this source-only PR.
+EXPECTED_WORKFLOW_REF = (
+    "SemperSupra/model-mechanisms/.github/workflows/"
+    "kaggle-provider.yml@refs/heads/main"
+)
+
+def require_trusted_execution() -> None:
+    required = {
+        "GITHUB_ACTIONS": "true",
+        "GITHUB_REPOSITORY": "SemperSupra/model-mechanisms",
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_EVENT_NAME": "workflow_dispatch",
+        "GITHUB_WORKFLOW_REF": EXPECTED_WORKFLOW_REF,
+        "MM_KAGGLE_EXECUTION_ADMITTED": "true",
+    }
+    if any(os.environ.get(key) != expected for key, expected in required.items()):
+        raise Denied("PROVIDER_ACTION_NOT_ADMITTED")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--action", choices=("plan", "submit", "observe"), required=True)
@@ -231,6 +252,7 @@ def main() -> int:
         else:
             if not os.getenv("KAGGLE_API_TOKEN"):
                 raise Denied("NO_KAGGLE_ENV_TOKEN")
+            require_trusted_execution()
             from kaggle import api
             observation = (submit(api, p) if args.action == "submit"
                            else observe(api, p, out))

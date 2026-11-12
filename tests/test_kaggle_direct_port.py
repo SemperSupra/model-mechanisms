@@ -131,6 +131,59 @@ class TestKaggleLatentDirect(unittest.TestCase):
             self.assertEqual(receipt["state"], "BLOCKED")
             self.assertEqual(receipt["failure_class"], "NO_KAGGLE_ENV_TOKEN")
 
+    def test_provider_context_is_explicit_default_branch_only(self):
+        from unittest.mock import patch
+        required = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_REPOSITORY": "SemperSupra/model-mechanisms",
+            "GITHUB_REF": "refs/heads/main",
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_WORKFLOW_REF": module.EXPECTED_WORKFLOW_REF,
+            "MM_KAGGLE_EXECUTION_ADMITTED": "true",
+        }
+        with patch.dict("os.environ", required, clear=True):
+            module.require_trusted_execution()
+        for key in required:
+            bad = dict(required)
+            bad[key] = "unexpected"
+            with patch.dict("os.environ", bad, clear=True):
+                with self.assertRaisesRegex(module.Denied, "PROVIDER_ACTION_NOT_ADMITTED"):
+                    module.require_trusted_execution()
+
+    def test_injected_token_cannot_enable_unreviewed_pr_submit_or_observe(self):
+        from unittest.mock import patch
+        import json
+        import os
+        import sys
+        import tempfile
+        for action in ("submit", "observe"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as tmp:
+                argv = [
+                    "direct.py", "--action", action, "--workload", "gpu-cuda-v1",
+                    "--out-dir", tmp,
+                ]
+                if action == "observe":
+                    argv.extend(["--version", "1"])
+                fake_env = {
+                    "KAGGLE_API_TOKEN": "FAKE-UNIT-TEST-NOT-A-REAL-KEY",
+                    "GITHUB_ACTIONS": "true",
+                    "GITHUB_REPOSITORY": "SemperSupra/model-mechanisms",
+                    "GITHUB_REF": "refs/pull/4/merge",
+                    "GITHUB_EVENT_NAME": "pull_request",
+                    "MM_KAGGLE_EXECUTION_ADMITTED": "true",
+                }
+                with patch.object(sys, "argv", argv), patch.dict(
+                    os.environ, fake_env, clear=True
+                ):
+                    self.assertEqual(module.main(), 2)
+                receipt = json.loads(
+                    (Path(tmp) / "control-receipt.json").read_text()
+                )
+                self.assertEqual(receipt["state"], "BLOCKED")
+                self.assertEqual(
+                    receipt["failure_class"], "PROVIDER_ACTION_NOT_ADMITTED"
+                )
+
     def test_new_native_workflow_is_public_offline_only(self):
         workflow = (ROOT / ".github/workflows/b4-kaggle-direct-preflight.yml"
                     ).read_text(encoding="utf-8")
