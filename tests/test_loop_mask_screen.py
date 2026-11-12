@@ -54,9 +54,14 @@ class LoopScreenContracts(unittest.TestCase):
             lambda p: p["cells"].pop(),
             lambda p: p["cells"][2].update(loop_mask="0000"),
             lambda p: p["cells"][8].update(active_pass_count=9),
-            lambda p: p["cells"][8].update(nominal_strength_each_active_pass="1"),
+            lambda p: p["cells"][9].update(nominal_strength_each_active_pass="1"),
             lambda p: p["cells"][8].update(reference_control_cell_id="mask-1111"),
             lambda p: p["cells"][8].update(measured=True),
+            lambda p: p["cells"][8].update(seed=99),
+            lambda p: p["cells"][8].update(treatment="unauthorized"),
+            lambda p: p["cells"][8].update(pass_order="reverse"),
+            lambda p: p.update(nominal_total_treatment_strength="20"),
+            lambda p: p.update(controls_required_beyond_mask_zero=[]),
             lambda p: p.update(status="SCIENTIFIC_RESULT"),
             lambda p: p.update(admission="ADMITTED"),
             lambda p: p["frozen_inputs"].update(backbone_revision="invented"),
@@ -64,8 +69,9 @@ class LoopScreenContracts(unittest.TestCase):
         ):
             doc = copy.deepcopy(mod.make_plan())
             mutation(doc)
-            with self.assertRaises(ValueError):
-                mod.validate_plan(doc)
+            with self.subTest(mutation=mutation.__code__.co_firstlineno):
+                with self.assertRaises(ValueError):
+                    mod.validate_plan(doc)
 
     def test_cli_stdout_standalone(self):
         proc = subprocess.run(
