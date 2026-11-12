@@ -56,6 +56,30 @@ def overlap_first_last(n: int, first: int = 1024, last: int = 2000) -> dict:
         "validation_and_training_disjoint_by_index": a <= b,
     }
 
+def stage1_field_profile(records: list[dict]) -> dict:
+    """Aggregate source-key/types only; never return data values."""
+    n=len(records)
+    src_ok=sum(isinstance(x.get("src"),str) for x in records)
+    rephrase_ok=sum(
+        isinstance(x.get("rephrase"),list)
+        and all(isinstance(p,str) for p in x["rephrase"])
+        for x in records
+    )
+    both_ok=sum(
+        isinstance(x.get("src"),str)
+        and isinstance(x.get("rephrase"),list)
+        and all(isinstance(p,str) for p in x["rephrase"])
+        for x in records
+    )
+    return {
+        "total_records":n,
+        "src_string_records":src_ok,
+        "rephrase_string_list_records":rephrase_ok,
+        "trainer_compatible_records":both_ok,
+        "trainer_compatible":both_ok==n,
+        "source_values_emitted":False,
+    }
+
 def text_overlap_first_last(records: list[dict]) -> dict:
     """Aggregate normalized *text* overlaps, never emit original questions.
 
@@ -121,6 +145,7 @@ def audit(path: Path) -> dict:
     observed = []
     stage1 = None
     stage1_text_overlap = None
+    stage1_field_profile_result = None
     with zipfile.ZipFile(io.BytesIO(inner_raw)) as inner:
         actual = {x.filename for x in inner.infolist() if not x.is_dir()}
         expected = {PREFIX + name for name in EXPECTED}
@@ -140,7 +165,10 @@ def audit(path: Path) -> dict:
             observed.append({"path": member, "sha256": digest, "bytes": expected_size, **shape})
             if relative == "new_split_data/zsre_for_bert_train.json":
                 stage1 = overlap_first_last(shape["record_count"])
-                stage1_text_overlap = text_overlap_first_last(json.loads(raw))
+                stage1_records = json.loads(raw)
+                stage1_field_profile_result = stage1_field_profile(stage1_records)
+                if stage1_field_profile_result["trainer_compatible"]:
+                    stage1_text_overlap = text_overlap_first_last(stage1_records)
     return {
         "schema": "model-mechanisms.meg-publisher-data-census/v1",
         "status": "SOURCE_SCHEMA_VERIFIED",
@@ -150,6 +178,9 @@ def audit(path: Path) -> dict:
         "files": observed,
         "stage1_zsre_index_overlap": stage1,
         "stage1_zsre_text_overlap": stage1_text_overlap,
+        "stage1_zsre_field_profile": stage1_field_profile_result,
+        "stage1_text_overlap_state": ("MEASURED_EXACT_TEXT" if stage1_text_overlap is not None
+                                      else "BLOCKED_SOURCE_FIELD_MISMATCH"),
         "publisher_data_bytes_redistributed": False,
         "author_code_executed": False,
         "model_trained": False,
@@ -171,6 +202,8 @@ def main() -> None:
         "status": result["status"], "file_count": result["file_count"],
         "stage1_zsre_index_overlap": result["stage1_zsre_index_overlap"],
         "stage1_zsre_text_overlap": result["stage1_zsre_text_overlap"],
+        "stage1_zsre_field_profile": result["stage1_zsre_field_profile"],
+        "stage1_text_overlap_state": result["stage1_text_overlap_state"],
         "file_record_counts": {i["path"]: i["record_count"] for i in result["files"]},
         "publisher_data_bytes_redistributed": False,
     }, sort_keys=True))
