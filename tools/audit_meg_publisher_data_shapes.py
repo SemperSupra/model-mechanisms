@@ -20,7 +20,7 @@ PREFIX = "data_for_our_MeG/"
 MAX_OUTER = 512_000_000
 MAX_FILE = 100_000_000
 EXPECTED = {
-    "edit_data/gptj_cf_edit.json": ("dda379804da92a3f55dabf7b70619479b137d9ca92102cbf90401c73", 41121404),
+    "edit_data/gptj_cf_edit.json": ("dda379804da92a3f55dabf7b70619479b137d9ca92102cbf90401c73c7f38a53", 41121404),
     "edit_data/gptj_zsre_edit.json": ("236e2bc315800d07773cb2dedd8b4435dd6974fc39588fa22b58f8b64f5e0958", 21865696),
     "edit_data/phi2_cf_edit.json": ("34c9a0f9f65feda4fb618825ec59a35394f982bdf144fdfc0172a968b603c7c2", 41287967),
     "edit_data/phi2_zsre_edit.json": ("100fa2b28e9ed97256cd19e680392f563caa245e03cad7b6a31b6a04cf6783f7", 20357962),
