@@ -66,6 +66,7 @@ def inspect_config(raw:bytes)->dict:
         raise ValueError("STAGE2_HPARAM_IDENTITY_MISMATCH")
     text=raw.decode("utf-8")
     block=text.split("  phi2:\n",1)[1].split("    cf:\n",1)[0]
+    block="\n".join(line.rstrip() for line in block.splitlines())+"\n"  # publisher YAML has insignificant trailing spaces
     if not block.startswith("    zsre:\n"):
         raise ValueError("PHI2_ZSRE_BLOCK_MISSING")
     if "      threshold: 0.1\n" not in block:
