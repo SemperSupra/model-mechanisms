@@ -82,6 +82,33 @@ def quota(api, p: dict) -> int:
         raise Denied("KAGGLE_QUOTA_INSUFFICIENT")
     return int(remaining)
 
+def classify_native_status(raw: object) -> str:
+    """Fail closed on unknown Kaggle kernel status spellings.
+
+    Accept only exact named states, optionally an enum-class or Kaggle's
+    KERNEL_STATUS_ prefix. No substring matching: INCOMPLETE and
+    NOT_RUNNING must never be mistaken for terminal/active.
+    """
+    if not isinstance(raw, str):
+        raw = getattr(raw, "name", None)
+    if not isinstance(raw, str):
+        return "UNKNOWN"
+    token = raw.strip().upper()
+    if "." in token:
+        if token.count(".") != 1:
+            return "UNKNOWN"
+        token = token.rsplit(".", 1)[-1]
+    if token.startswith("KERNEL_STATUS_"):
+        token = token[len("KERNEL_STATUS_"):]
+    if token in {"RUNNING", "PENDING", "QUEUED", "STARTING"}:
+        return "NONTERMINAL"
+    if token in {"COMPLETE", "SUCCESS"}:
+        return "TERMINAL_SUCCESS"
+    if token in {"ERROR", "FAIL", "FAILED", "CANCEL", "CANCELED", "CANCELLED"}:
+        return "TERMINAL_FAILED"
+    return "UNKNOWN"
+
+
 def ensure_not_existing_or_active(api, target: str) -> None:
     # Kaggle jobs outlive GHA jobs; check known experiment namespaces.
     token = None
@@ -100,11 +127,12 @@ def ensure_not_existing_or_active(api, target: str) -> None:
             if ref.lower() == target.lower():
                 raise Denied("TARGET_EXISTS_OBSERVE_INSTEAD")
             if ref.split("/", 1)[1].startswith(("mech-b4-", "latent-c001-", "ad-rdte-")):
-                status = str(getattr(api.kernels_status(ref), "status", "UNKNOWN")).upper()
-                if any(k in status for k in ("QUEUED", "RUNNING", "PENDING", "STARTING")):
+                state = classify_native_status(
+                    getattr(api.kernels_status(ref), "status", None)
+                )
+                if state == "NONTERMINAL":
                     raise Denied("EXISTING_KAGGLE_EXPERIMENT_ACTIVE")
-                if not any(k in status for k in
-                           ("COMPLETE", "SUCCESS", "ERROR", "FAIL", "CANCEL")):
+                if state == "UNKNOWN":
                     raise Denied("EXISTING_KAGGLE_EXPERIMENT_UNKNOWN")
         token = getattr(page, "next_page_token", None)
         if not token:
@@ -190,12 +218,14 @@ def observe(api, p: dict, out: Path) -> dict:
     version, slug = p["native_version"], p["slug"]
     require_native_version(api, user, slug, version)
     ref = f"{user}/{slug}/{version}"
-    status = str(getattr(api.kernels_status(ref), "status", "UNKNOWN")).upper()
-    if any(s in status for s in ("RUNNING", "PENDING", "QUEUED", "STARTING")):
+    status = classify_native_status(
+        getattr(api.kernels_status(ref), "status", None)
+    )
+    if status == "NONTERMINAL":
         return {"state": "NONTERMINAL", "is_terminal": False}
-    if not any(s in status for s in ("COMPLETE", "SUCCESS", "ERROR", "FAIL", "CANCEL")):
+    if status == "UNKNOWN":
         raise Denied("PROVIDER_STATUS_UNKNOWN")
-    if any(s in status for s in ("ERROR", "FAIL", "CANCEL")):
+    if status == "TERMINAL_FAILED":
         return {"state": "TERMINAL_FAILED", "is_terminal": True}
     out.mkdir(parents=True, exist_ok=True)
     api.kernels_output(ref, str(out), file_pattern=r"^latent_kaggle_result[.]json$",
