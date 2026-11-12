@@ -14,9 +14,9 @@ from pathlib import PurePosixPath
 import stat
 import zipfile
 
-MAX_ARCHIVE_BYTES = 80_000_000
-MAX_MEMBER_BYTES = 40_000_000
-MAX_UNPACKED_TOTAL = 200_000_000
+MAX_ARCHIVE_BYTES = 512_000_000
+MAX_MEMBER_BYTES = 512_000_000
+MAX_UNPACKED_TOTAL = 1_500_000_000
 MAX_FILES = 2000
 ICLR_SUPPLEMENT_URL = (
     "https://proceedings.iclr.cc/paper_files/paper/2026/file/"
