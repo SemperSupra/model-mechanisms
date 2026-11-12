@@ -54,6 +54,13 @@ class PublisherDataShapeTests(unittest.TestCase):
                         [{"src":"x","rephrase":[42]}]):
             with self.subTest(records=records),self.assertRaises(ValueError):
                 mod.text_overlap_first_last(records)
+    def test_stage1_schema_mismatch_reports_aggregate_blocker(self):
+        items=[{"question":"synthetic","answers":["x"]},{"src":"invented","rephrase":["rewrite"]}]
+        report=mod.stage1_field_profile(items)
+        self.assertEqual(report["trainer_compatible_records"],1)
+        self.assertFalse(report["trainer_compatible"])
+        self.assertFalse(report["source_values_emitted"])
+        self.assertNotIn("synthetic",str(report))
     def test_no_unpinned_archive_as_success(self):
         with self.assertRaises(ValueError):
             mod.audit(Path("/definitely-does-not-exist/meg.zip"))
