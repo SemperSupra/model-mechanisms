@@ -1,0 +1,49 @@
+name: meg-stage1-source-and-math-preflight
+
+on:
+  pull_request:
+    paths:
+      - "tools/meg_stage1_source_preflight.py"
+      - "tests/test_meg_stage1_source_preflight.py"
+      - "docs/rdte/meg-stage1-source-and-math.md"
+      - ".github/workflows/meg-stage1-source-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-only-stage1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: No-model synthetic InfoNCE and negative-source tests
+        run: python3 -m unittest discover -s tests -p 'test_meg_stage1_source_preflight.py' -v
+      - name: Fetch exact author source and hparams as TEXT ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/meg-stage1"
+          BASE="https://raw.githubusercontent.com/RodeWayne/MeG-for-Knowledge-Editing/9fa8ae10cf33c82dd2200057f70dfcb73388cd74"
+          curl --fail --location --silent --show-error --max-time 30 \
+            "$BASE/train_bert.py" -o "$RUNNER_TEMP/meg-stage1/author-train.py.txt"
+          curl --fail --location --silent --show-error --max-time 30 \
+            "$BASE/hparams/stage_1/phi2_zsre.yaml" -o "$RUNNER_TEMP/meg-stage1/author-config.yaml.txt"
+      - name: Static AST audit (NEVER import original code) and mathematical oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/meg_stage1_source_preflight.py \
+            --author-train "$RUNNER_TEMP/meg-stage1/author-train.py.txt" \
+            --author-config "$RUNNER_TEMP/meg-stage1/author-config.yaml.txt" \
+            --receipt "$RUNNER_TEMP/meg-stage1/receipt.json"
+      - name: Publish only static-research metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: meg-stage1-source-math-preflight
+          path: ${{ runner.temp }}/meg-stage1/receipt.json
+          retention-days: 7
+          if-no-files-found: error
