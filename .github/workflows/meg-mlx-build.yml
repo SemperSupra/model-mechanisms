@@ -22,6 +22,9 @@ jobs:
       - name: Check synthetic tests and framework modules are valid Python
         run: |
           python3 -m compileall -q adapters/backends/mlx/meg_phi2
+          python3 -m unittest discover \
+            -s adapters/backends/mlx/meg_phi2/tests \
+            -p 'test_wheel_artifact_contract.py' -v
   macos-mlx-wheel-build:
     needs: source-contract
     strategy:
@@ -52,6 +55,10 @@ jobs:
           python -m build --no-isolation --wheel \
             adapters/backends/mlx/meg_phi2 \
             --outdir "$RUNNER_TEMP/meg-mlx/dist"
+          python adapters/backends/mlx/meg_phi2/tools/audit_wheel.py \
+            --wheel "$RUNNER_TEMP"/meg-mlx/dist/*.whl \
+            --source adapters/backends/mlx/meg_phi2 \
+            | tee "$RUNNER_TEMP/meg-mlx/wheel-audit.json"
           python -m pip install --no-deps "$RUNNER_TEMP"/meg-mlx/dist/*.whl
           python -m pip show meg-mlx-bridge
       - name: Validate actual Phi-2 MLP intervention contracts on GPU
@@ -73,7 +80,10 @@ jobs:
           assert len(wheels) == 1, "Exactly one wheel required"
           wheel = wheels[0]
           surrogate = json.loads((out / "surrogate.json").read_text())
+          inspected = json.loads((out / "wheel-audit.json").read_text())
           assert surrogate["status"] == "PASS" and not surrogate["meg_paper_reproduced"]
+          assert inspected["status"] == "PASS"
+          assert inspected["wheel_sha256"] == hashlib.sha256(wheel.read_bytes()).hexdigest()
           report = {
               "schema": "meg-mlx-wheel-build/v1",
               "status": "PASS",
@@ -82,6 +92,8 @@ jobs:
               "source_commit": source_sha,
               "wheel": wheel.name,
               "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+              "wheel_source_parity": True,
+              "wheel_record_integrity": True,
               "mlx_version": importlib.metadata.version("mlx"),
               "mlx_lm_version": importlib.metadata.version("mlx-lm"),
               "bridge_version": importlib.metadata.version("meg-mlx-bridge"),
@@ -107,5 +119,6 @@ jobs:
             ${{ runner.temp }}/meg-mlx/dist/*.whl
             ${{ runner.temp }}/meg-mlx/build-receipt.json
             ${{ runner.temp }}/meg-mlx/surrogate.json
+            ${{ runner.temp }}/meg-mlx/wheel-audit.json
           retention-days: 14
           if-no-files-found: warn
