@@ -1,3 +1,5 @@
+> **Source correction (2026-11-12):** The original stage-zero datasets, edited Phi-2 data, familiarity label files and a `rephrase.prompt` **are available in the official ICLR supplementary ZIP**, source/member hashes verified by [public Actions 43210713738](https://github.com/SemperSupra/model-mechanisms/actions/runs/43210713738) and inventoried in [Foundry PR #72](https://github.com/SemperSupra/model-artifact-foundry/pull/72). This independent seeded derivation is now a **recipe-equivalence / control** workcell, not the preferred source for original data. Use publisher-original input files for the authors' faithful experiment after rights/Foundry admission. Trained stage1–4 checkpoints are still unlocated. See [scientific issue #5](https://github.com/SemperSupra/model-mechanisms-private/issues/5).
+
 # MeG stage-zero independent reconstruction — reproducible derivative boundary
 
 **Science authority:** [Model Mechanisms private #5](https://github.com/SemperSupra/model-mechanisms-private/issues/5).  
