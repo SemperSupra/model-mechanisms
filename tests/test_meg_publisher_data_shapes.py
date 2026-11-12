@@ -61,6 +61,20 @@ class PublisherDataShapeTests(unittest.TestCase):
         self.assertFalse(report["trainer_compatible"])
         self.assertFalse(report["source_values_emitted"])
         self.assertNotIn("synthetic",str(report))
+    def test_literal_character_fragment_vs_type_corrected_counts(self):
+        rows=[
+            {"src":"one", "rephrase":["full paraphrase 1","full paraphrase 2"]},
+            {"src":"two", "rephrase":"Hello world"},
+            {"src":"three", "rephrase":"X"},
+            {"src":"four", "rephrase":""},
+        ]
+        report=mod.stage1_field_profile(rows)["all"]
+        self.assertEqual(report["as_published_contrastive_pairs"],5)
+        self.assertEqual(report["type_corrected_contrastive_pairs"],4)
+        self.assertEqual(report["as_published_character_fragment_pairs"],3)
+        self.assertEqual(report["string_fields_shorter_than_two_characters"],2)
+        self.assertEqual(report["rephrase_as_string"],3)
+        self.assertEqual(report["rephrase_list_of_strings"],1)
     def test_no_unpinned_archive_as_success(self):
         with self.assertRaises(ValueError):
             mod.audit(Path("/definitely-does-not-exist/meg.zip"))
