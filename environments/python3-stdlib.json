@@ -6,5 +6,8 @@
   "resource_class": "cpu",
   "requirements_file": null,
   "execution_surface": "public-github-actions-standard",
-  "claim": "source_only_contract_smoke"
+  "claim": "source_only_contract_smoke",
+  "allowed_modules": [
+    "experiments.contract_smoke"
+  ]
 }
