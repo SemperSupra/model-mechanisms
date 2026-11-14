@@ -1,0 +1,47 @@
+name: comp001-synthetic-composition-contract
+
+on:
+  pull_request:
+    paths:
+      - "experiments/composition-go/**"
+      - ".github/workflows/comp001-source-only.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comp001-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-synthetic-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: experiments/composition-go/go.mod
+          cache: false
+      - name: Exact source-only checks, no network or model artifacts
+        working-directory: experiments/composition-go
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOPROXY=off GOTOOLCHAIN=local
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -trimpath -o "${RUNNER_TEMP}/comp001-fixture" ./cmd/fixture
+          "${RUNNER_TEMP}/comp001-fixture" > "${RUNNER_TEMP}/comp001-receipt.json"
+          grep -q '"status": "SYNTHETIC_CONTRACT_SMOKE_ONLY"' "${RUNNER_TEMP}/comp001-receipt.json"
+          grep -q '"claim": "SYNTHETIC_LINEAR_ORACLE_ONLY_NOT_A_LEARNED_MODEL"' "${RUNNER_TEMP}/comp001-receipt.json"
+      - name: Publish synthetic-only receipts, seven-day retention
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: comp001-structural-fixture
+          path: ${{ runner.temp }}/comp001-receipt.json
+          retention-days: 7
+          if-no-files-found: error
