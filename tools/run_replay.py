@@ -13,6 +13,10 @@ import sys
 import time
 from pathlib import Path
 
+# Preserve the legacy 'python tools/run_replay.py' entrypoint without relying on
+# a globally installed package or implicit PYTHONPATH.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.replay_strict import (bounded_run, load_source_safe_spec, strict_json,
                                  validate_source_only_receipt)
 
