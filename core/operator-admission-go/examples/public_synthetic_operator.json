@@ -1,0 +1,38 @@
+{
+  "schema": "model-mechanisms.operator-manifest.v1",
+  "operator_id": "synthetic-control-v1",
+  "revision": "r1",
+  "kind": "parameter_delta",
+  "model": {
+    "backend": "synthetic-mhr-like",
+    "revision": "v1",
+    "weights_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "architecture_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "input": {
+    "kind": "latent_vector",
+    "parameter_space": "synthetic-2d",
+    "dimension": 2,
+    "units": "unitless",
+    "frame": "model-local"
+  },
+  "allowed_scopes": [
+    "morphology"
+  ],
+  "protected_fields": [
+    "canonical_authority",
+    "source_provenance",
+    "persistent_identity"
+  ],
+  "delta_unit": "normalized",
+  "max_abs_delta": 1,
+  "source_class": "public_synthetic",
+  "source_admission_id": "public-fixture-0001",
+  "resources": {
+    "max_wall_seconds": 30,
+    "max_memory_mib": 256,
+    "max_gpu_mib": 0,
+    "allow_network": false,
+    "allow_paid": false
+  }
+}
