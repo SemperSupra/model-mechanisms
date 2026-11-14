@@ -22,7 +22,8 @@
   "protected_fields": [
     "canonical_authority",
     "source_provenance",
-    "persistent_identity"
+    "persistent_identity",
+    "rights"
   ],
   "delta_unit": "normalized",
   "max_abs_delta": 1,
