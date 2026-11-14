@@ -1,0 +1,55 @@
+name: comp001-independent-admission-contract
+
+on:
+  pull_request:
+    paths:
+      - "core/operator-admission-go/**"
+      - ".github/workflows/comp001-admission-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comp001-admission-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-go-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: core/operator-admission-go/go.mod
+          cache: false
+      - name: Offline tests and deterministic synthetic CLI admission
+        working-directory: core/operator-admission-go
+        env:
+          GOPROXY: "off"
+          GOTOOLCHAIN: "local"
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -trimpath -o "${RUNNER_TEMP}/comp001-admit" ./cmd/admit
+          "${RUNNER_TEMP}/comp001-admit" -manifest examples/public_synthetic_operator.json -candidate examples/public_synthetic_candidate.json > "${RUNNER_TEMP}/comp001-admission-receipt.json"
+          python3 - "${RUNNER_TEMP}/comp001-admission-receipt.json" <<'PY'
+          import json, sys
+          obj = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert obj['status'] == 'COMPATIBLE_CONTRACT_ONLY_NOT_EXECUTION_AUTHORIZATION'
+          assert obj['claim'] == 'COMPATIBILITY_CONTRACT_ONLY_NOT_EXECUTION_AUTHORIZATION'
+          assert len(obj['manifest_sha256']) == 64 and len(obj['candidate_sha256']) == 64
+          assert obj['reasons'] == []
+          PY
+      - name: Archive public synthetic receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: comp001-operator-admission-synthetic
+          path: ${{ runner.temp }}/comp001-admission-receipt.json
+          if-no-files-found: error
+          retention-days: 7

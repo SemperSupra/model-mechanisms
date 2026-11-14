@@ -1,0 +1,19 @@
+{
+  "schema": "model-mechanisms.candidate-ref.v1",
+  "candidate_id": "synthetic-base-v1",
+  "model": {
+    "backend": "synthetic-mhr-like",
+    "revision": "v1",
+    "weights_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "architecture_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "state": {
+    "kind": "latent_vector",
+    "parameter_space": "synthetic-2d",
+    "dimension": 2,
+    "units": "unitless",
+    "frame": "model-local"
+  },
+  "source_class": "public_synthetic",
+  "source_admission_id": "public-fixture-0001"
+}
