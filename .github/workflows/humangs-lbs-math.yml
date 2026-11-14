@@ -1,0 +1,33 @@
+name: Research HumanGS affine LBS math falsifiers
+on:
+  pull_request:
+    paths:
+      - "research/humangs-lbs/**"
+      - ".github/workflows/humangs-lbs-math.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-math:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'
+      - name: Run original source-equivalent affine rotation and covariance oracle
+        run: |
+          set -euo pipefail
+          GO111MODULE=off go test -count=1 -v ./research/humangs-lbs | tee humangs-lbs-r0.log
+          grep 'RECEIPT' humangs-lbs-r0.log
+      - name: Archive exact public proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: humangs-lbs-r0-${{ github.run_id }}
+          path: humangs-lbs-r0.log
+          retention-days: 3
+          if-no-files-found: warn
