@@ -1,0 +1,52 @@
+name: Research MLX render-only challenger Mac R0
+on:
+  pull_request:
+    paths:
+      - "research/apple-mlx-gsplat/challenger.py"
+      - ".github/workflows/mlx-splat-challenger.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mlx-splat-challenger-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  renderer-challenger:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'arm64'
+      - name: Install bounded MLX native render dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet --disable-pip-version-check \
+            mlx==0.32.4 numpy==2.2.6 pillow==11.3.0 \
+            plyfile==1.1.3 tqdm==4.67.1
+      - name: Pin public MIT upstream exact commit, no assets/checkpoints
+        run: |
+          set -euo pipefail
+          git clone --quiet --filter=blob:none https://github.com/daikiad/mlx-splat.git "$RUNNER_TEMP/mlx-splat"
+          git -C "$RUNNER_TEMP/mlx-splat" checkout --quiet --detach 84e838856d13597b479465d4648aed472d01da8e
+          test "$(git -C "$RUNNER_TEMP/mlx-splat" rev-parse HEAD)" = "84e838856d13597b479465d4648aed472d01da8e"
+          test -s "$RUNNER_TEMP/mlx-splat/LICENSE"
+      - name: Compare real Metal renderer and pure-MLX reference
+        env:
+          MLX_SPLAT_OUT: ${{ github.workspace }}/out/mlx-splat-challenger
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$RUNNER_TEMP/mlx-splat/src" python research/apple-mlx-gsplat/challenger.py
+      - name: Preserve synthetic numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlx-splat-challenger-${{ github.run_id }}
+          path: out/mlx-splat-challenger/
+          retention-days: 3
+          if-no-files-found: warn

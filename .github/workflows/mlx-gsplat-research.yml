@@ -1,0 +1,55 @@
+name: Research MLX gsplat differentiable Mac GPU R0
+on:
+  pull_request:
+    paths:
+      - "research/apple-mlx-gsplat/**"
+      - ".github/workflows/mlx-gsplat-research.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mlx-gsplat-r0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mlxr0:
+    runs-on: macos-26
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'arm64'
+      - name: Check host and install pinned tiny MLX research dependencies
+        run: |
+          set -euo pipefail
+          uname -m
+          sw_vers
+          python -m pip install --quiet --disable-pip-version-check \
+            mlx==0.32.4 numpy==2.2.6 scipy==1.15.3 pillow==11.3.0 \
+            "setuptools>=68" "setuptools-scm>=8"
+      - name: Retrieve exact public Apache-metadata gsplat-mlx source commit
+        run: |
+          set -euo pipefail
+          git clone --quiet --filter=blob:none https://github.com/RobotFlow-Labs/gsplat-mlx.git "$RUNNER_TEMP/gsplat-mlx"
+          git -C "$RUNNER_TEMP/gsplat-mlx" checkout --quiet --detach 9e53709a94e9c56fb66db2708d7d728832176713
+          test "$(git -C "$RUNNER_TEMP/gsplat-mlx" rev-parse HEAD)" = "9e53709a94e9c56fb66db2708d7d728832176713"
+          python -m pip install --quiet --disable-pip-version-check --no-deps "$RUNNER_TEMP/gsplat-mlx"
+      - name: Execute actual Metal GPU 3DGS covariance and differentiable render oracle
+        env:
+          MLX_GSPLAT_OUT: ${{ github.workspace }}/out/mlx-gsplat-r0
+          MLX_USE_METAL: '1'
+        run: |
+          set -euo pipefail
+          python research/apple-mlx-gsplat/probe.py
+      - name: Preserve only synthetic receipts and images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlx-gsplat-r0-${{ github.run_id }}
+          path: out/mlx-gsplat-r0/
+          retention-days: 3
+          if-no-files-found: warn
