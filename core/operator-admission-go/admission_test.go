@@ -11,7 +11,7 @@ import (
 func a64()string{return strings.Repeat("a",64)}
 func b64()string{return strings.Repeat("b",64)}
 func model()ModelRef{return ModelRef{Backend:"synthetic-mhr-like",Revision:"v1",WeightsSHA256:a64(),ArchitectureSHA256:b64()}}
-func m0()Manifest{return Manifest{Schema:Schema,OperatorID:"synthetic-control-v1",Revision:"r1",Kind:"parameter_delta",Model:model(),Input:Representation{Kind:"latent_vector",ParameterSpace:"synthetic-2d",Dimension:2,Units:"unitless",Frame:"model-local"},AllowedScopes:[]string{"morphology"},ProtectedFields:[]string{"canonical_authority","source_provenance","persistent_identity"},DeltaUnit:"normalized",MaxAbsDelta:1,SourceClass:"public_synthetic",SourceAdmissionID:"public-fixture-0001",Resources:Resources{MaxWallSeconds:30,MaxMemoryMiB:256,MaxGPUMiB:0}}}
+func m0()Manifest{return Manifest{Schema:Schema,OperatorID:"synthetic-control-v1",Revision:"r1",Kind:"parameter_delta",Model:model(),Input:Representation{Kind:"latent_vector",ParameterSpace:"synthetic-2d",Dimension:2,Units:"unitless",Frame:"model-local"},AllowedScopes:[]string{"morphology"},ProtectedFields:[]string{"canonical_authority","source_provenance","persistent_identity","rights"},DeltaUnit:"normalized",MaxAbsDelta:1,SourceClass:"public_synthetic",SourceAdmissionID:"public-fixture-0001",Resources:Resources{MaxWallSeconds:30,MaxMemoryMiB:256,MaxGPUMiB:0}}}
 func c0()Candidate{m:=m0();return Candidate{Schema:CandidateSchema,CandidateID:"synthetic-base-v1",Model:m.Model,State:m.Input,SourceClass:m.SourceClass,SourceAdmissionID:m.SourceAdmissionID}}
 
 func TestPositiveCompatibleContract(t *testing.T){
@@ -55,6 +55,8 @@ func TestKindSpecificRepresentationAndHardGates(t *testing.T){
  "invalid_hash":func(m *Manifest){m.Model.WeightsSHA256="bad"},
  "zero_vector":func(m *Manifest){m.Input.Dimension=0},
  "missing_frame":func(m *Manifest){m.Input.Frame=""},
+ "unrecognized_frame":func(m *Manifest){m.Input.Frame="unknown-up"},
+ "unknown_scope":func(m *Manifest){m.AllowedScopes=[]string{"new-right"}},
  }
  for name,f:=range cases{t.Run(name,func(t *testing.T){m:=m0();f(&m);if _,err:=Plan(m,c0());err==nil{t.Fatal("invalid manifest admitted")}})}
 }
@@ -68,6 +70,9 @@ func TestGeometryRigMotionAndWeightSpecializations(t *testing.T){
  c=c0();c.State=motion.Input
  if r,err:=Plan(motion,c);err!=nil||r.Status!="COMPATIBLE_CONTRACT_ONLY_NOT_EXECUTION_AUTHORIZATION"{t.Fatalf("motion rejected %v %+v",err,r)}
  c.State.Timebase="25/1";if r,err:=Plan(motion,c);err!=nil||r.Status!="REJECTED"{t.Fatalf("wrong fps accepted %v %+v",err,r)}
+ motion.Input.Timebase="0/1";if _,err:=Plan(motion,c0());err==nil{t.Fatal("zero numerator fps admitted")}
+ motion.Input.Timebase="24/0";if _,err:=Plan(motion,c0());err==nil{t.Fatal("zero denominator fps admitted")}
+ motion.Input.Timebase="justwords";if _,err:=Plan(motion,c0());err==nil{t.Fatal("non rational fps admitted")}
  weight:=m0();weight.Kind="weight_adapter";weight.Input=Representation{Kind:"weights",ParameterSpace:"exact-arch-layer-A",Dimension:128,Units:"unitless",Frame:"model-local"};weight.AllowedScopes=[]string{"weights"}
  c=c0();c.State=weight.Input
  if r,err:=Plan(weight,c);err!=nil||r.Status!="COMPATIBLE_CONTRACT_ONLY_NOT_EXECUTION_AUTHORIZATION"{t.Fatalf("weights rejected %v %+v",err,r)}
