@@ -12,6 +12,7 @@ import (
   "io"
   "math"
   "strings"
+  "strconv"
 )
 
 const (
@@ -101,8 +102,19 @@ func validSource(class,id string)error {
  return nil
 }
 
+func validTimebase(raw string)bool {
+ parts:=strings.Split(raw,"/")
+ if len(parts)!=2{return false}
+ n,e1:=strconv.ParseUint(parts[0],10,32)
+ d,e2:=strconv.ParseUint(parts[1],10,32)
+ return e1==nil&&e2==nil&&n>0&&n<=10000000&&d>0&&d<=100000
+}
+func validFrame(s string)bool {
+ switch s {case "model-local","blender-z-up","gltf-y-up","world-m","camera":return true}
+ return false
+}
 func validRepresentation(s Representation)error {
- if s.Frame=="" {return errors.New("MISSING_COORDINATE_FRAME")}
+ if !validFrame(s.Frame){return errors.New("UNKNOWN_COORDINATE_FRAME")}
  switch s.Units {case "m","rad","unitless":default:return errors.New("UNKNOWN_UNIT")}
  switch s.Kind {
  case "latent_vector","activation":
@@ -112,7 +124,7 @@ func validRepresentation(s Representation)error {
   if !validSHA(s.TopologySHA256)||s.Units!="m" {return errors.New("INVALID_MESH_TOPOLOGY_OR_UNIT")}
   if s.Dimension!=0||s.ParameterSpace!=""||s.Timebase!="" {return errors.New("INVALID_MESH_EXTRA_FIELDS")}
  case "pose_stream":
-  if !validSHA(s.RigSHA256)||s.Timebase==""||s.Units!="rad" {return errors.New("INVALID_RIG_TIMEBASE_OR_ANGLE_UNIT")}
+  if !validSHA(s.RigSHA256)||!validTimebase(s.Timebase)||s.Units!="rad" {return errors.New("INVALID_RIG_TIMEBASE_OR_ANGLE_UNIT")}
   if s.ParameterSpace!=""||s.Dimension!=0||s.TopologySHA256!=""{return errors.New("INVALID_POSE_EXTRA_FIELDS")}
  case "weights":
   if s.ParameterSpace==""||s.Dimension<=0||s.Dimension>1000000 {return errors.New("INVALID_WEIGHT_SPACE")}
@@ -122,10 +134,14 @@ func validRepresentation(s Representation)error {
  return nil
 }
 
+func allowedScope(s string)bool {
+ switch s {case "morphology","appearance","expression","pose","motion","tissue","weights","activations","persistent_identity","source_provenance","canonical_authority","rights":return true}
+ return false
+}
 func uniqueScopes(values []string)error {
  if len(values)==0{return errors.New("MISSING_SCOPES")}
  seen:=map[string]bool{}
- for _,x:=range values {if x==""||seen[x] {return errors.New("BLANK_OR_DUPLICATE_SCOPE")};seen[x]=true}
+ for _,x:=range values {if !allowedScope(x)||seen[x] {return errors.New("UNKNOWN_OR_DUPLICATE_SCOPE")};seen[x]=true}
  return nil
 }
 
@@ -138,7 +154,7 @@ func (m Manifest) Validate()error {
  if err:=uniqueScopes(m.ProtectedFields);err!=nil{return err}
  protected:=map[string]bool{}
  for _,p:=range m.ProtectedFields{protected[p]=true}
- for _,p:=range []string{"canonical_authority","source_provenance","persistent_identity"}{if !protected[p]{return fmt.Errorf("UNPROTECTED_INVARIANT:%s",p)}}
+ for _,p:=range []string{"canonical_authority","source_provenance","persistent_identity","rights"}{if !protected[p]{return fmt.Errorf("UNPROTECTED_INVARIANT:%s",p)}}
  for _,s:=range m.AllowedScopes{if protected[s]{return errors.New("SCOPE_PROTECTION_CONFLICT")}}
  if m.DeltaUnit==""||!isDeltaUnit(m.DeltaUnit)||math.IsNaN(m.MaxAbsDelta)||math.IsInf(m.MaxAbsDelta,0)||m.MaxAbsDelta<=0||m.MaxAbsDelta>100{return errors.New("INVALID_DELTA_BUDGET")}
  r:=m.Resources
@@ -146,6 +162,7 @@ func (m Manifest) Validate()error {
  allowedKind:=map[string]string{"parameter_delta":"latent_vector","geometry_residual":"mesh","motion_corrector":"pose_stream","activation_bridge":"activation","weight_adapter":"weights"}
  kind,ok:=allowedKind[m.Kind];if !ok||m.Input.Kind!=kind{return errors.New("OPERATOR_REPRESENTATION_MISMATCH")}
  if (m.Kind=="weight_adapter"||m.Kind=="activation_bridge")&&m.Model.ArchitectureSHA256=="" {return errors.New("MISSING_COMPATIBLE_ARCHITECTURE_DIGEST")}
+ if (m.Kind=="parameter_delta"||m.Kind=="activation_bridge"||m.Kind=="weight_adapter")&&m.DeltaUnit!="normalized"{return errors.New("VECTOR_DELTA_NOT_NORMALIZED")}
  if m.Kind=="geometry_residual"&&m.DeltaUnit!="m"{return errors.New("MESH_DELTA_NOT_METRES")}
  if m.Kind=="motion_corrector"&&m.DeltaUnit!="rad"{return errors.New("MOTION_DELTA_NOT_RADIANS")}
  return nil
