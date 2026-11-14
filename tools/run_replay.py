@@ -8,39 +8,21 @@ import hashlib
 import json
 import os
 import platform
-import re
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from tools.replay_strict import (bounded_run, load_source_safe_spec, strict_json,
+                                 validate_source_only_receipt)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_spec(path: Path) -> dict:
-    spec=json.loads(path.read_text())
-    if spec.get("schema_version") != 1:
-        raise ValueError("unsupported replay spec version")
-
-    module=spec.get("module")
-    if not isinstance(module,str) or not re.fullmatch(r"experiments\.[A-Za-z][A-Za-z0-9_]*",module):
-        raise ValueError("module must be under experiments.*")
-
-    args=spec.get("arguments")
-    if not isinstance(args,dict):
-        raise ValueError("arguments must be an object")
-    for key,value in args.items():
-        if not key.replace("_","-").replace("-","").isalnum():
-            raise ValueError(f"invalid argument name: {key}")
-        if isinstance(value,bool) or not isinstance(value,(str,int,float)):
-            raise ValueError(f"unsupported argument value for {key}")
-
-    timeout=spec.get("timeout_seconds")
-    if not isinstance(timeout,int) or not (1 <= timeout <= 7200):
-        raise ValueError("timeout_seconds out of bounds")
-
-    return spec
+    """Validate a source-only replay at the point of execution, not only CI."""
+    return load_source_safe_spec(path, ROOT)
 
 
 def argv_for(spec: dict) -> list[str]:
@@ -86,14 +68,7 @@ def main() -> None:
 
     started=time.time()
     perf=time.perf_counter()
-    proc=subprocess.run(
-        argv,
-        cwd=ROOT,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=spec["timeout_seconds"],
-    )
+    proc=bounded_run(argv, ROOT, spec["timeout_seconds"])
     elapsed=time.perf_counter()-perf
 
     if proc.returncode != 0:
@@ -101,8 +76,9 @@ def main() -> None:
         raise SystemExit(proc.returncode)
 
     # Scientific experiment stdout must be one valid JSON document.
-    receipt=json.loads(proc.stdout.decode("utf-8"))
-    serialized=json.dumps(receipt,sort_keys=True,separators=(",",":")).encode("utf-8")
+    receipt=strict_json(proc.stdout)
+    validate_source_only_receipt(receipt)
+    serialized=json.dumps(receipt,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")
 
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.metadata.parent.mkdir(parents=True,exist_ok=True)
@@ -112,7 +88,7 @@ def main() -> None:
         "schema_version":1,
         "replay_spec_id":spec["id"],
         "replay_spec_sha256":sha256_bytes(
-            json.dumps(spec,sort_keys=True,separators=(",",":")).encode("utf-8")
+            json.dumps(spec,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")
         ),
         "scientific_receipt_sha256":sha256_bytes(serialized),
         "module":spec["module"],
